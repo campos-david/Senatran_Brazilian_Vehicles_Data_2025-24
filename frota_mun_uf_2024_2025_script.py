@@ -7,16 +7,17 @@ import unicodedata
 from datetime import datetime
 from sqlalchemy import create_engine
 
-# === CONFIGURAÇÃO DO BANCO DE DADOS ===
-db_user = "postgres"
-db_password = "46824682"
-db_host = "localhost"
-db_port = "5432"
-db_name = "Alper_Case"
+# === DATABASE CONFIGURATION ===
+# Replace with your actual credentials or use environment variables
+db_user = "your_user"
+db_password = "your_password"
+db_host = "your_host"
+db_port = "your_port"
+db_name = "your_database"
 
 engine = create_engine(f"postgresql+psycopg2://{db_user}:{db_password}@{db_host}:{db_port}/{db_name}")
 
-# === MAPA DE MESES ===
+# === MONTH MAPPING FOR FILE NAME PARSING ===
 month_variants = {
     "JANEIRO": 1, "FEVEREIRO": 2, "MARO": 3, "MARCO": 3, "MARÇO": 3, "MAR": 3,
     "ABRIL": 4, "MAIO": 5, "JUNHO": 6, "JUN": 6,
@@ -24,10 +25,12 @@ month_variants = {
     "NOVEMBRO": 11, "DEZEMBRO": 12
 }
 
+# Normalize and sanitize a string (e.g., for filename or column parsing)
 def normalize_text(text):
     text = unicodedata.normalize("NFKD", text).encode("ASCII", "ignore").decode("utf-8")
     return re.sub(r"[^A-Z0-9]", "", text.upper())
 
+# Extract a datetime object from the file name based on month/year
 def extract_date_from_url(url):
     filename = url.split("/")[-1]
     normalized = normalize_text(filename)
@@ -45,6 +48,7 @@ def extract_date_from_url(url):
         return datetime(year, month, 1)
     return None
 
+# Standardize column names to uppercase with underscores
 def normalize_columns(columns):
     normalized = []
     for col in columns:
@@ -54,6 +58,7 @@ def normalize_columns(columns):
         normalized.append(col)
     return normalized
 
+# Retrieve all <a> tag links from a given URL
 def get_links(base_url):
     print(f"[STEP] Fetching page: {base_url}")
     headers = {"User-Agent": "Mozilla/5.0"}
@@ -66,7 +71,7 @@ def get_links(base_url):
         print(f"[ERROR] Could not fetch page: {e}")
         return []
 
-# === INÍCIO DO PROCESSAMENTO ===
+# === BEGIN DATA EXTRACTION AND TRANSFORMATION ===
 dataframes = []
 base_urls = [
     "https://www.gov.br/transportes/pt-br/assuntos/transito/conteudo-Senatran/frota-de-veiculos-2024",
@@ -109,13 +114,13 @@ for base_url in base_urls:
             except Exception as e:
                 print(f"[ERROR] Failed to process file {file_url}: {e}")
 
-# === INSERÇÃO NO POSTGRES ===
+# === LOAD TO POSTGRES ===
 if dataframes:
     final_df = pd.concat(dataframes, ignore_index=True)
     try:
         final_df.to_sql("frota_municipio_tipo_veiculo", engine, if_exists="replace", index=False)
-        print("[OK] Dados inseridos na tabela 'frota_municipio_tipo_veiculo' no PostgreSQL.")
+        print("[OK] Data inserted into 'frota_municipio_tipo_veiculo' table in PostgreSQL.")
     except Exception as e:
-        print(f"[ERROR] Falha ao inserir no PostgreSQL: {e}")
+        print(f"[ERROR] Failed to insert into PostgreSQL: {e}")
 else:
-    print("[WARNING] Nenhum dado foi processado.")
+    print("[WARNING] No data was processed.")
